@@ -134,7 +134,9 @@ function revisarAvisos() {
 }
 function enviarCorreo_(para, fecha, prueba) {
   if (!para) throw new Error('Falta el correo de destino');
-  const cfg = leerConfig_(), web = cfg.web_url || '';
+  const cfg = leerConfig_();
+  // el enlace lleva la dirección de este script escondida tras # (no viaja a GitHub ni queda en el repositorio)
+  const web = cfg.web_url ? cfg.web_url.split('#')[0] + '#c=' + Utilities.base64EncodeWebSafe(ScriptApp.getService().getUrl()) : '';
   const esFiesta = fecha === FIESTA;
   const d = new Date(fecha + 'T12:00:00');
   const dia = Utilities.formatDate(d, TZ, 'd') + ' de ' + ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'][d.getMonth()];

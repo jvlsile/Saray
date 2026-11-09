@@ -126,6 +126,8 @@ main{max-width:1180px;margin:0 auto;padding:26px 24px 120px}
     <p class="kicker">Redacción secreta</p>
     <h1>Cartas para Saray</h1>
     <form id="gateForm">
+      <label class="f" id="gApiRow" hidden>Enlace de configuración<input type="url" id="gApi" placeholder="Pega aquí el enlace que te han pasado" autocomplete="off">
+        <span class="note">Solo hace falta la primera vez: este teléfono lo recordará.</span></label>
       <label class="f">Tu nombre<input type="text" id="gName" autocomplete="given-name" required placeholder="Para saber quién escribió cada carta"></label>
       <label class="f">Clave<input type="password" id="gKey" autocomplete="current-password" required></label>
       <button class="btn" type="submit" id="gBtn">Entrar</button>
@@ -140,7 +142,7 @@ main{max-width:1180px;margin:0 auto;padding:26px 24px 120px}
       <h1>Cartas para Saray</h1>
       <p>Cada carta se publica y le llega a Saray por correo a la hora que elijáis.</p>
     </div>
-    <div class="who">Escribes como <b id="whoName"></b> · <a href="#" id="logout" style="color:inherit">salir</a></div>
+    <div class="who">Escribes como <b id="whoName"></b> · <a href="#" id="logout" style="color:inherit">salir</a> · <a href="#" id="forget" style="color:inherit">olvidar este teléfono</a></div>
   </header>
 
   <section class="settings">
@@ -158,6 +160,10 @@ main{max-width:1180px;margin:0 auto;padding:26px 24px 120px}
         <label class="f">Enlace de la web (va en el correo)
           <div class="row"><input type="url" id="sWeb"><button class="btn small" id="sWebBtn" type="button">Guardar</button></div>
         </label>
+        <div class="f">Enlace para otras amigas
+          <div class="row"><input type="text" id="sShare" readonly><button class="btn small ghost" id="sShareBtn" type="button">Copiar</button></div>
+          <span class="note">Pásalo por privado junto con la clave. Configura su teléfono la primera vez que lo abran.</span>
+        </div>
         <div class="f">Probar el correo
           <div class="row"><input type="email" id="sTest" placeholder="tu correo"><button class="btn small ghost" id="sTestBtn" type="button">Enviar prueba</button></div>
           <span class="note">Llega un correo igual al de Saray, marcado como prueba.</span>
@@ -217,6 +223,20 @@ main{max-width:1180px;margin:0 auto;padding:26px 24px 120px}
 const CFG = Object.assign({ API_URL: '', INICIO: '2026-11-08', FIESTA: '2026-11-14', FIRMA: 'Tus amigas' }, window.CONFIG || {});
 const $ = s => document.querySelector(s);
 const store = { get(k) { try { return localStorage.getItem('cs_' + k) || ''; } catch (e) { return ''; } }, set(k, v) { try { localStorage.setItem('cs_' + k, v); } catch (e) {} } };
+/* la URL del script no está en el repositorio: llega en un enlace (#c=…) y se guarda en este teléfono */
+const b64u = s => btoa(s).replace(/\+/g, '-').replace(/\//g, '_');
+const unb64u = s => atob(s.replace(/-/g, '+').replace(/_/g, '/'));
+const okApi = u => /^https:\/\/script\.google(usercontent)?\.com\/.+/.test(u || '');
+function readApi(text) {
+  text = (text || '').trim(); if (!text) return '';
+  if (okApi(text)) return text;
+  const m = text.match(/#c=([\w\-=]+)/); if (m) { try { const u = unb64u(m[1]); if (okApi(u)) return u; } catch (e) {} }
+  return '';
+}
+{ const fromHash = readApi(location.hash); if (fromHash) { store.set('api', fromHash); try { history.replaceState(null, '', location.pathname); } catch (e) {} } }
+CFG.API_URL = CFG.API_URL || store.get('api');
+const shareLink = () => new URL('.', location.href).href + '#c=' + b64u(CFG.API_URL);
+const sarayLink = () => new URL('..', location.href).href + '#c=' + b64u(CFG.API_URL);
 const MAX = 20 * 1024 * 1024;
 let KEY = '', NAME = '', DATA = null;
 
@@ -234,23 +254,26 @@ async function api(params, body) {
 }
 
 /* ---------- acceso ---------- */
-$('#gName').value = store.get('name'); $('#gKey').value = store.get('key');
+$('#gName').value = store.get('name'); $('#gKey').value = store.get('key'); $('#gApiRow').hidden = !!CFG.API_URL;
 $('#gateForm').addEventListener('submit', async e => {
   e.preventDefault(); $('#gErr').textContent = ''; $('#gBtn').disabled = true; $('#gBtn').textContent = 'Comprobando…';
   KEY = $('#gKey').value.trim(); NAME = $('#gName').value.trim();
+  if (!CFG.API_URL) { const u = readApi($('#gApi').value); if (!u) { $('#gErr').textContent = 'El enlace de configuración no es válido. Pídeselo de nuevo a la organizadora.'; $('#gBtn').disabled = false; $('#gBtn').textContent = 'Entrar'; return; } CFG.API_URL = u; }
   try {
     const d = await api({ accion: 'todas' });
     if (!d.ok) throw new Error(d.error === 'clave' ? 'La clave no es correcta.' : 'No se ha podido entrar.');
-    store.set('key', KEY); store.set('name', NAME); DATA = d; start();
-  } catch (err) { $('#gErr').textContent = err.message.includes('API_URL') ? 'La web aún no está conectada con la hoja de Google (falta API_URL en config.js).' : (err.message || 'Error de conexión.'); }
+    store.set('api', CFG.API_URL); store.set('key', KEY); store.set('name', NAME); DATA = d; start();
+  } catch (err) { $('#gErr').textContent = err.message.includes('API_URL') ? 'Falta el enlace de configuración.' : (err.message === 'Failed to fetch' ? 'No se ha podido conectar. Revisa el enlace de configuración.' : (err.message || 'Error de conexión.')); if (!store.get('api')) { CFG.API_URL = ''; } }
   $('#gBtn').disabled = false; $('#gBtn').textContent = 'Entrar';
 });
 $('#logout').addEventListener('click', e => { e.preventDefault(); store.set('key', ''); location.reload(); });
+$('#forget').addEventListener('click', e => { e.preventDefault(); if (!confirmar('Este teléfono olvidará el enlace, tu nombre y la clave. ¿Seguir?')) return; ['api', 'key', 'name'].forEach(k => store.set(k, '')); location.reload(); });
 
 /* ---------- aplicación ---------- */
 function start() {
   $('#gate').hidden = true; $('#app').hidden = false; $('#whoName').textContent = NAME;
   $('#sHora').value = DATA.hora || ''; $('#sEmail').value = DATA.email || ''; $('#sWeb').value = DATA.web || new URL('..', location.href).href;
+  $('#sShare').value = shareLink();
   renderAviso(); renderFondo();
   const box = $('#days'); box.innerHTML = '';
   days.forEach(k => box.appendChild(dayCard(k, DATA.cartas[k] || {})));
@@ -274,6 +297,9 @@ const ajuste = (btn, body, ok) => $(btn).addEventListener('click', async () => {
 ajuste('#sHoraBtn', () => ({ hora: $('#sHora').value }));
 ajuste('#sEmailBtn', () => ({ email: $('#sEmail').value.trim() }), () => { DATA.email = $('#sEmail').value.trim(); renderAviso(); });
 ajuste('#sWebBtn', () => ({ web: $('#sWeb').value.trim() }));
+$('#sShareBtn').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText($('#sShare').value); toast('Enlace copiado'); } catch (e) { $('#sShare').select(); toast('Selecciónalo y cópialo a mano'); }
+});
 $('#sTestBtn').addEventListener('click', async () => {
   const to = $('#sTest').value.trim(); if (!to) return toast('Escribe tu correo para la prueba.');
   $('#sTestBtn').disabled = true;
@@ -380,6 +406,7 @@ function dayCard(k, c) {
 
 /* entrada automática si ya hay clave guardada */
 if (store.get('key') && store.get('name') && CFG.API_URL) $('#gateForm').requestSubmit();
+void sarayLink;
 })();
 </script>
 </body>

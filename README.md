@@ -31,9 +31,10 @@ Las cartas **no** están en este repositorio: viven en vuestra hoja de Google. L
    - Quién tiene acceso: **Cualquier usuario**.
 3. Pulsa **Implementar** y copia la URL que termina en `/exec`.
 
-### 4. Conectar la web con el script
-1. En GitHub abre `config.js` y pulsa el lápiz para editarlo.
-2. Pega la URL en `API_URL: ''` (entre las comillas) y guarda el cambio (*Commit changes*).
+### 4. Configurar tu teléfono (la URL no se guarda en el repositorio)
+1. Abre `https://jvlsile.github.io/Saray/escribir/`.
+2. En **Enlace de configuración** pega la URL `/exec` del paso anterior, escribe tu nombre y la clave, y entra.
+3. Tu teléfono lo recordará. En **Ajustes de la despedida → Enlace para otras amigas** tienes un enlace para copiar: pásaselo por privado a cada amiga junto con la clave y su teléfono quedará configurado al abrirlo.
 
 ### 5. Activar los avisos por correo
 1. Vuelve a Apps Script, elige la función **instalarAviso** y pulsa **Ejecutar**.
@@ -41,7 +42,7 @@ Las cartas **no** están en este repositorio: viven en vuestra hoja de Google. L
 
 ### 6. Redactar
 1. Entrad en `https://jvlsile.github.io/Saray/escribir/` con vuestro nombre y la clave.
-2. En **Ajustes de la despedida** poned el correo de Saray, el enlace de la web, la hora de la fiesta (cuando la sepáis) y, si queréis, la música de fondo.
+2. En **Ajustes de la despedida** poned el correo de Saray, el enlace de la web (`https://jvlsile.github.io/Saray/`), la hora de la fiesta (cuando la sepáis) y, si queréis, la música de fondo.
 3. Usad **Enviar prueba** para ver el correo en vuestro buzón.
 4. Escribid cada carta, elegid su hora de publicación y subid foto, vídeo o canción si queréis. Pulsad **Guardar carta**.
 
@@ -59,5 +60,9 @@ Cada vez que modifiquéis `Code.gs` hay que publicar una versión nueva: **Imple
 
 ## Privacidad
 - El repositorio es público: cualquiera puede ver el código, pero no las cartas ni los archivos, que están en vuestra hoja y vuestro Drive.
+- La dirección del script **no está en el repositorio**. Cada teléfono la recibe en un enlace privado (lo que va detrás de `#c=` nunca se envía a GitHub) y la guarda en su navegador:
+  - Saray, en el botón **Abrir la carta** de cada correo. Si abre la web sin ese enlace en otro dispositivo, verá un aviso para que la abra desde el correo.
+  - Las amigas, en el enlace que se copia desde **Ajustes → Enlace para otras amigas**.
+- **No escribáis nunca la clave real en GitHub**: solo en el editor de Apps Script.
 - La página `escribir/` no aparece en buscadores y sin la clave no muestra nada. Para más secreto, podéis renombrar la carpeta (por ejemplo `escribir-r7k2/`).
 - La música de fondo se sube desde la página de redacción y se guarda en vuestro Drive, no en este repositorio.
