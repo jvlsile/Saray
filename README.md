@@ -48,6 +48,14 @@ Las cartas **no** están en este repositorio: viven en vuestra hoja de Google. L
 
 ---
 
+## Avisos por correo o por WhatsApp
+En cada carta se elige **Avisar a Saray por: Correo, WhatsApp o Los dos**.
+- **Correo:** se envía solo a la hora de publicación.
+- **WhatsApp:** WhatsApp no permite envíos automáticos gratuitos. A la hora de publicación llega un correo a la organizadora (Ajustes → *Tu correo para los avisos de WhatsApp*) con un botón que abre WhatsApp con el mensaje para Saray ya escrito; solo hay que pulsar enviar. El mismo botón aparece en la redacción cuando la carta está publicada. Hace falta poner el teléfono de Saray en Ajustes.
+
+## Pedir opinión a las amigas
+Cada carta tiene **Vista previa** y **Pedir opinión a las amigas**. Este segundo botón comparte por WhatsApp un enlace donde las amigas ven la carta animada tal como la verá Saray (marcada como vista previa) y responden *Me encanta* o *Cambiaría algo* con un comentario. Las opiniones aparecen debajo de cada carta en la redacción. Saray no puede abrir estas vistas previas: piden la clave.
+
 ## Cómo funciona cada carta
 - A la hora de publicación, la carta se desbloquea en la web y Saray recibe el correo. Antes de esa hora, en su tendedero aparece cerrada con un candado: "La carta de hoy llega a las…".
 - Si la carta tiene **canción**, la música de fondo se apaga mientras suena y vuelve al guardar la carta.

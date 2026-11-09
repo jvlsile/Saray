@@ -36,7 +36,7 @@ input[type=text],input[type=password],input[type=email],input[type=url],input[ty
   transition:border-color .2s ease,background .2s ease}
 input:focus,textarea:focus{border-color:rgba(242,217,166,.6);background:rgba(255,255,255,.09);outline:none}
 textarea{resize:vertical;min-height:130px;line-height:1.5}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:999px;padding:11px 20px;cursor:pointer;font-weight:600;
+.btn{text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:999px;padding:11px 20px;cursor:pointer;font-weight:600;
   background:linear-gradient(180deg,#f8e6bf,#e0bd7e);color:var(--velvet);transition:transform .16s ease-out,opacity .2s ease}
 .btn:active{transform:scale(.97)}
 .btn[disabled]{opacity:.55;cursor:default}
@@ -85,6 +85,19 @@ main{max-width:1180px;margin:0 auto;padding:26px 24px 120px}
 .slot input[type=file]{display:none}
 .slot.busy{opacity:.6;pointer-events:none}
 .save-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:3px;gap:2px;flex-wrap:wrap}
+.seg label{position:relative;cursor:pointer}
+.seg input{position:absolute;opacity:0;inset:0;cursor:pointer}
+.seg span{display:block;padding:6px 14px;border-radius:999px;font-size:14px;color:var(--muted);transition:background .2s ease,color .2s ease}
+.seg input:checked + span{background:var(--champ);color:var(--velvet);font-weight:600}
+.seg input:focus-visible + span{outline:2px solid var(--champ);outline-offset:2px}
+.acts-row{display:flex;gap:8px;flex-wrap:wrap}
+.btn.wa{background:#25d366;color:#fff}
+.ops{display:flex;flex-direction:column;gap:6px}
+.ops .op{font-size:13.5px;color:var(--muted)}
+.ops .op b{color:var(--text);font-weight:600}
+.ops .op.ok b::before{content:"✓ ";color:#b9f2cf}
+.ops .op.ch b::before{content:"✎ ";color:#ffd59a}
 .save-row .state{font-size:14px;color:var(--muted)}
 .save-row .state.dirty{color:#ffd59a}
 
@@ -160,6 +173,14 @@ main{max-width:1180px;margin:0 auto;padding:26px 24px 120px}
         <label class="f">Enlace de la web (va en el correo)
           <div class="row"><input type="url" id="sWeb"><button class="btn small" id="sWebBtn" type="button">Guardar</button></div>
         </label>
+        <label class="f">Teléfono de Saray (WhatsApp)
+          <div class="row"><input type="tel" id="sTel" placeholder="34 600 000 000" inputmode="tel"><button class="btn small" id="sTelBtn" type="button">Guardar</button></div>
+          <span class="note">Con el prefijo del país, sin el +.</span>
+        </label>
+        <label class="f">Tu correo para los avisos de WhatsApp
+          <div class="row"><input type="email" id="sOrga" placeholder="tu@correo"><button class="btn small" id="sOrgaBtn" type="button">Guardar</button></div>
+          <span class="note">A la hora de cada carta “por WhatsApp” te llega un correo con el botón para enviársela.</span>
+        </label>
         <div class="f">Enlace para otras amigas
           <div class="row"><input type="text" id="sShare" readonly><button class="btn small ghost" id="sShareBtn" type="button">Copiar</button></div>
           <span class="note">Pásalo por privado junto con la clave. Configura su teléfono la primera vez que lo abran.</span>
@@ -208,7 +229,20 @@ main{max-width:1180px;margin:0 auto;padding:26px 24px 120px}
           <div class="slot" data-t="video"><h4>Vídeo</h4><div class="file">Sin vídeo</div><div class="acts"><label class="btn small ghost">Subir<input type="file" accept="video/*"></label><button class="btn small ghost del" type="button" hidden>Quitar</button></div></div>
           <div class="slot" data-t="musica"><h4>Canción de la carta</h4><div class="file">Sin canción</div><div class="acts"><label class="btn small ghost">Subir<input type="file" accept="audio/*"></label><button class="btn small ghost del" type="button" hidden>Quitar</button></div></div>
         </div>
+        <div class="f">Avisar a Saray por
+          <div class="seg" role="radiogroup">
+            <label><input type="radio" value="correo" data-canal checked><span>Correo</span></label>
+            <label><input type="radio" value="whatsapp" data-canal><span>WhatsApp</span></label>
+            <label><input type="radio" value="ambos" data-canal><span>Los dos</span></label>
+          </div>
+        </div>
         <div class="save-row"><button class="btn save" type="button">Guardar carta</button><span class="state"></span></div>
+        <div class="acts-row">
+          <a class="btn small ghost preview" target="_blank" rel="noopener">Vista previa</a>
+          <button class="btn small ghost ask" type="button">Pedir opinión a las amigas</button>
+          <a class="btn small wa sendwa" target="_blank" rel="noopener" hidden>Enviar a Saray por WhatsApp</a>
+        </div>
+        <div class="ops"></div>
       </div>
       <div class="paper">
         <div class="spark">✦</div><div class="d"></div><div class="t"></div><hr><div class="x"></div><div class="s"></div>
@@ -247,7 +281,14 @@ async function fromCode(text) {   // enlace corto (…/#código) o el código so
 { const fromHash = readApi(location.hash); if (fromHash) { store.set('api', fromHash); try { history.replaceState(null, '', location.pathname); } catch (e) {} } }
 CFG.API_URL = CFG.API_URL || store.get('api');
 const shareLink = () => new URL('.', location.href).href + (store.get('code') ? '#' + store.get('code') : '#c=' + b64u(CFG.API_URL));
-const sarayLink = () => new URL('..', location.href).href + '#c=' + b64u(CFG.API_URL);
+const siteBase = () => new URL('..', location.href).href;
+const sarayLink = () => siteBase() + (store.get('code') ? '#' + store.get('code') : '#c=' + b64u(CFG.API_URL));
+const previewLink = k => siteBase() + '#ver-' + k + (store.get('code') ? '-' + store.get('code') : '');
+const waText = k => (k === CFG.FIESTA ? 'Saray, hoy es el día. Abre tu última carta: ' : 'Saray, tienes una carta nueva. Ábrela aquí: ') + (DATA.enlace || sarayLink());
+async function shareText(text) {
+  if (navigator.share) { try { await navigator.share({ text }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
+  window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank', 'noopener');
+}
 const MAX = 20 * 1024 * 1024;
 let KEY = '', NAME = '', DATA = null;
 
@@ -257,6 +298,7 @@ const nowHM = () => { const d = new Date(); return String(d.getHours()).padStart
 const days = (() => { const o = []; for (let d = new Date(CFG.INICIO + 'T12:00:00'); keyOf(d) <= CFG.FIESTA; d.setDate(d.getDate() + 1)) o.push(keyOf(d)); return o; })();
 const fmtDay = (k, opts) => new Date(k + 'T12:00:00').toLocaleDateString('es-ES', opts);
 const cap = s => s ? s[0].toUpperCase() + s.slice(1) : s;
+const esc = s => String(s || '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 
 async function api(params, body) {
   if (!CFG.API_URL) throw new Error('Falta configurar API_URL en config.js');
@@ -287,6 +329,8 @@ function start() {
   $('#gate').hidden = true; $('#app').hidden = false; $('#whoName').textContent = NAME;
   $('#sHora').value = DATA.hora || ''; $('#sEmail').value = DATA.email || ''; $('#sWeb').value = DATA.web || new URL('..', location.href).href;
   $('#sShare').value = shareLink();
+  $('#sTel').value = DATA.tel || ''; $('#sOrga').value = DATA.emailOrga || '';
+  if (!DATA.enlace && store.get('code')) { DATA.enlace = sarayLink(); api(null, { accion: 'ajustes', enlace: DATA.enlace }).catch(() => {}); }
   renderAviso(); renderFondo();
   const box = $('#days'); box.innerHTML = '';
   days.forEach(k => box.appendChild(dayCard(k, DATA.cartas[k] || {})));
@@ -310,6 +354,8 @@ const ajuste = (btn, body, ok) => $(btn).addEventListener('click', async () => {
 ajuste('#sHoraBtn', () => ({ hora: $('#sHora').value }));
 ajuste('#sEmailBtn', () => ({ email: $('#sEmail').value.trim() }), () => { DATA.email = $('#sEmail').value.trim(); renderAviso(); });
 ajuste('#sWebBtn', () => ({ web: $('#sWeb').value.trim() }));
+ajuste('#sTelBtn', () => ({ tel: $('#sTel').value.trim() }), () => { DATA.tel = $('#sTel').value.replace(/[^\d]/g, ''); document.querySelectorAll('.day').forEach(d => d.dispatchEvent(new Event('repaint'))); });
+ajuste('#sOrgaBtn', () => ({ emailOrga: $('#sOrga').value.trim() }), () => { DATA.emailOrga = $('#sOrga').value.trim(); });
 $('#sShareBtn').addEventListener('click', async () => {
   try { await navigator.clipboard.writeText($('#sShare').value); toast('Enlace copiado'); } catch (e) { $('#sShare').select(); toast('Selecciónalo y cópialo a mano'); }
 });
@@ -364,8 +410,11 @@ function dayCard(k, c) {
   const fields = {}; el.querySelectorAll('[data-k]').forEach(i => { fields[i.dataset.k] = i; if (c[i.dataset.k]) i.value = c[i.dataset.k]; });
   if (!c.publicar) fields.publicar.value = '09:00';
   const st = q('.state'), save = q('.save');
+  const radios = [...el.querySelectorAll('[data-canal]')], gname = 'canal-' + k;
+  radios.forEach(r => { r.name = gname; r.checked = r.value === (c.canal || 'correo'); r.addEventListener('change', paint); });
+  const canal = () => (radios.find(r => r.checked) || {}).value || 'correo';
+  function vals() { return { titulo: fields.titulo.value.trim(), texto: fields.texto.value.trim(), firma: fields.firma.value.trim(), publicar: fields.publicar.value || '09:00', canal: canal() }; }
   let saved = JSON.stringify(vals());
-  function vals() { return { titulo: fields.titulo.value.trim(), texto: fields.texto.value.trim(), firma: fields.firma.value.trim(), publicar: fields.publicar.value || '09:00' }; }
   function paint() {
     const v = vals(), cc = Object.assign({}, c, v);
     const [cls, txt] = status(k, cc); const pill = q('.pill'); pill.className = 'pill ' + cls; pill.textContent = txt;
@@ -380,10 +429,22 @@ function dayCard(k, c) {
       slot.querySelector('.file').textContent = m ? m.nombre : { foto: 'Sin foto', video: 'Sin vídeo', musica: 'Sin canción' }[t];
       slot.querySelector('.del').hidden = !m;
     });
+    q('.preview').href = previewLink(k);
+    const published = status(k, cc)[0] === 'ok', wa = q('.sendwa');
+    wa.hidden = !(published && v.canal !== 'correo' && DATA.tel);
+    if (!wa.hidden) wa.href = 'https://wa.me/' + DATA.tel + '?text=' + encodeURIComponent(waText(k));
+    const ops = (DATA.opiniones && DATA.opiniones[k]) || [];
+    q('.ops').innerHTML = ops.length ? ops.map(o => `<div class="op ${o.voto === 'cambiar' ? 'ch' : 'ok'}"><b>${esc(o.por)}</b>${o.comentario ? ': ' + esc(o.comentario) : (o.voto === 'cambiar' ? ' cambiaría algo' : ' le parece bien')}</div>`).join('') : '';
     const pol = q('.pol'); pol.hidden = !(c.foto || c.video);
     const chip = q('.chip'); chip.hidden = !c.musica; chip.textContent = c.musica ? '♪ ' + c.musica.nombre.replace(/\.\w+$/, '') : '';
   }
   Object.values(fields).forEach(i => i.addEventListener('input', paint));
+  el.addEventListener('repaint', paint);
+  q('.ask').addEventListener('click', () => {
+    if (JSON.stringify(vals()) !== saved) return toast('Guarda la carta antes de pedir opinión.');
+    if (!c.texto) return toast('Escribe y guarda la carta antes de pedir opinión.');
+    shareText(`¿Qué os parece la carta del ${date.toLowerCase()} para Saray? Miradla y decid si os gusta: ${previewLink(k)}`);
+  });
   save.addEventListener('click', async () => {
     const v = vals(); if (!v.texto) { toast('Escribe la pista antes de guardar.'); fields.texto.focus(); return; }
     save.disabled = true; st.textContent = 'Guardando…';

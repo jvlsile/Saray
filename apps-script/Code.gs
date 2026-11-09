@@ -14,7 +14,8 @@ const TZ = 'Europe/Madrid';
 const CARPETA = 'Cartas para Saray (archivos)';
 const MAX_MB = 20;
 
-const COLS = ['fecha', 'titulo', 'texto', 'firma', 'por', 'actualizado', 'foto', 'video', 'musica', 'publicar', 'avisado'];
+const COLS = ['fecha', 'titulo', 'texto', 'firma', 'por', 'actualizado', 'foto', 'video', 'musica', 'publicar', 'avisado', 'canal'];
+const CANALES = ['correo', 'whatsapp', 'ambos'];
 const HORA_DEFECTO = '09:00';
 const TIPOS = ['foto', 'video', 'musica'];
 
@@ -41,7 +42,8 @@ function doGet(e) {
     if (p.clave !== CLAVE) return json_({ ok: false, error: 'clave' });
     const cfg = leerConfig_();
     return json_({ ok: true, hoy, hora: cfg.hora || '', email: cfg.email_saray || '', web: cfg.web_url || '',
-      avisoActivo: hayAviso_(), fondo: cfg.fondo ? JSON.parse(cfg.fondo) : null, cartas: leerCartas_() });
+      tel: cfg.tel_saray || '', emailOrga: cfg.email_orga || '', enlace: enlaceSaray_(cfg),
+      avisoActivo: hayAviso_(), fondo: cfg.fondo ? JSON.parse(cfg.fondo) : null, cartas: leerCartas_(), opiniones: leerOpiniones_() });
   }
 
   if (accion === 'archivo') {
@@ -76,6 +78,7 @@ function doPost(e) {
         const colPub = COLS.indexOf('publicar') + 1, colAv = COLS.indexOf('avisado') + 1;
         if (h.getRange(fila, colPub).getValue() !== pub) h.getRange(fila, colAv).setValue('');   // nueva hora: se volverá a avisar
         h.getRange(fila, colPub).setValue(pub);
+        h.getRange(fila, COLS.indexOf('canal') + 1).setValue(CANALES.indexOf(d.canal) >= 0 ? d.canal : 'correo');
         return json_({ ok: true, actualizado: ahora });
       }
       case 'subir': {
@@ -100,10 +103,22 @@ function doPost(e) {
         borrar_(h.getRange(fila, col).getValue()); h.getRange(fila, col).setValue('');
         return json_({ ok: true });
       }
+      case 'opinion': {
+        if (!esFecha_(d.fecha)) return json_({ ok: false, error: 'fecha' });
+        const h = hoja_('Opiniones'), v = h.getDataRange().getValues(), quien = cut_(d.por, 40) || 'Anónima';
+        let fila = -1;
+        for (let i = 1; i < v.length; i++) if (fecha_(v[i][0]) === d.fecha && s_(v[i][1]) === quien) { fila = i + 1; break; }
+        if (fila < 0) { h.appendRow(['']); fila = h.getLastRow(); }
+        h.getRange(fila, 1, 1, 5).setValues([[d.fecha, quien, d.voto === 'cambiar' ? 'cambiar' : 'bien', cut_(d.comentario, 400), ahora_()]]);
+        return json_({ ok: true });
+      }
       case 'ajustes': {
         if ('hora' in d) ponerConfig_('hora', cut_(d.hora, 5));
         if ('email' in d) ponerConfig_('email_saray', cut_(d.email, 120));
         if ('web' in d) ponerConfig_('web_url', cut_(d.web, 300));
+        if ('tel' in d) ponerConfig_('tel_saray', String(d.tel || '').replace(/[^\d]/g, '').slice(0, 15));
+        if ('emailOrga' in d) ponerConfig_('email_orga', cut_(d.emailOrga, 120));
+        if ('enlace' in d) ponerConfig_('enlace_saray', cut_(d.enlace, 300));
         return json_({ ok: true });
       }
       case 'probarAviso': {
@@ -123,20 +138,45 @@ function instalarAviso() {
   ScriptApp.newTrigger('revisarAvisos').timeBased().everyMinutes(10).create();
 }
 function revisarAvisos() {
-  const cfg = leerConfig_(); if (!cfg.email_saray) return;
+  const cfg = leerConfig_();
   const hoy = hoy_(), c = leerCartas_()[hoy];
   if (!c || !c.texto || !publicada_(hoy, c) || c.avisado === hoy) return;
   const lock = LockService.getScriptLock(); if (!lock.tryLock(5000)) return;
   try {
-    enviarCorreo_(cfg.email_saray, hoy, false);
+    const canal = c.canal || 'correo';
+    if ((canal === 'correo' || canal === 'ambos') && cfg.email_saray) enviarCorreo_(cfg.email_saray, hoy, false);
+    if ((canal === 'whatsapp' || canal === 'ambos') && cfg.email_orga) enviarRecordatorioWhats_(cfg, hoy, c);
     hoja_('Cartas').getRange(filaDe_(hoy), COLS.indexOf('avisado') + 1).setValue(hoy);
   } finally { lock.releaseLock(); }
+}
+/* WhatsApp no permite envíos automáticos gratis: avisamos a la organizadora con un botón que abre
+   WhatsApp con el mensaje para Saray ya escrito. Solo tiene que pulsar enviar. */
+function textoWhats_(cfg, fecha) {
+  const enlace = enlaceSaray_(cfg);
+  return (fecha === FIESTA ? 'Saray, hoy es el día. Abre tu última carta: ' : 'Saray, tienes una carta nueva. Ábrela aquí: ') + enlace;
+}
+function enviarRecordatorioWhats_(cfg, fecha, c) {
+  const wa = 'https://wa.me/' + (cfg.tel_saray || '') + '?text=' + encodeURIComponent(textoWhats_(cfg, fecha));
+  const html = `
+  <div style="background:#2b0a1a;padding:32px 16px;font-family:Georgia,serif">
+    <div style="max-width:460px;margin:0 auto;background:#f7eee2;border-radius:6px;padding:32px 28px;text-align:center;border:1px solid #d9b98a">
+      <div style="color:#a63a5a;font-style:italic">Es la hora</div>
+      <div style="color:#4a0f27;font-size:24px;font-weight:bold;margin:8px 0 14px">Envíale a Saray la carta de hoy</div>
+      <div style="color:#3a0c20;font-size:15px;line-height:1.5;margin-bottom:22px">«${c.titulo || 'Carta de hoy'}» ya está publicada. Pulsa el botón: se abrirá WhatsApp con el mensaje escrito.</div>
+      <a href="${wa}" style="display:inline-block;background:#25d366;color:#fff;text-decoration:none;font-weight:bold;padding:13px 26px;border-radius:999px">Enviar por WhatsApp</a>
+    </div>
+  </div>`;
+  MailApp.sendEmail({ to: cfg.email_orga, subject: 'Envía a Saray la carta de hoy por WhatsApp', htmlBody: html, name: 'Cartas para Saray', body: wa });
+}
+function enlaceSaray_(cfg) {
+  if (cfg.enlace_saray) return cfg.enlace_saray;
+  return cfg.web_url ? cfg.web_url.split('#')[0] + '#c=' + Utilities.base64EncodeWebSafe(ScriptApp.getService().getUrl()) : '';
 }
 function enviarCorreo_(para, fecha, prueba) {
   if (!para) throw new Error('Falta el correo de destino');
   const cfg = leerConfig_();
   // el enlace lleva la dirección de este script escondida tras # (no viaja a GitHub ni queda en el repositorio)
-  const web = cfg.web_url ? cfg.web_url.split('#')[0] + '#c=' + Utilities.base64EncodeWebSafe(ScriptApp.getService().getUrl()) : '';
+  const web = enlaceSaray_(cfg);
   const esFiesta = fecha === FIESTA;
   const d = new Date(fecha + 'T12:00:00');
   const dia = Utilities.formatDate(d, TZ, 'd') + ' de ' + ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'][d.getMonth()];
@@ -163,9 +203,17 @@ function leerCartas_() {
   for (let i = 1; i < v.length; i++) {
     const f = fecha_(v[i][0]); if (!f) continue;
     const c = { titulo: s_(v[i][1]), texto: s_(v[i][2]), firma: s_(v[i][3]), por: s_(v[i][4]), actualizado: s_(v[i][5]),
-      publicar: hora_(v[i][9]) || HORA_DEFECTO, avisado: fecha_(v[i][10]) };
+      publicar: hora_(v[i][9]) || HORA_DEFECTO, avisado: fecha_(v[i][10]), canal: s_(v[i][11]) || 'correo' };
     TIPOS.forEach((t, k) => { const raw = s_(v[i][6 + k]); if (raw) try { c[t] = JSON.parse(raw); } catch (e) {} });
     out[f] = c;
+  }
+  return out;
+}
+function leerOpiniones_() {
+  const v = hoja_('Opiniones').getDataRange().getValues(), out = {};
+  for (let i = 1; i < v.length; i++) {
+    const f = fecha_(v[i][0]); if (!f) continue;
+    (out[f] = out[f] || []).push({ por: s_(v[i][1]), voto: s_(v[i][2]), comentario: s_(v[i][3]), cuando: s_(v[i][4]) });
   }
   return out;
 }
@@ -202,7 +250,8 @@ function hoja_(nombre) {
   let h = ss.getSheetByName(nombre);
   if (!h) {
     h = ss.insertSheet(nombre);
-    if (nombre === 'Cartas') { h.getRange('A:K').setNumberFormat('@'); h.appendRow(COLS); }
+    if (nombre === 'Cartas') { h.getRange('A:L').setNumberFormat('@'); h.appendRow(COLS); }
+    if (nombre === 'Opiniones') { h.getRange('A:E').setNumberFormat('@'); h.appendRow(['fecha', 'por', 'voto', 'comentario', 'cuando']); }
     if (nombre === 'Config') { h.getRange('A:B').setNumberFormat('@'); h.appendRow(['clave', 'valor']); }
   }
   return h;
@@ -219,4 +268,4 @@ function cut_(x, n) { return s_(x).slice(0, n); }
 function json_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
 
 /** Ejecuta esta función una vez para crear las pestañas, la carpeta y conceder permisos. */
-function preparar() { hoja_('Cartas'); hoja_('Config'); carpeta_(); Logger.log('Hoja lista: ' + ss_().getUrl()); }
+function preparar() { hoja_('Cartas'); hoja_('Config'); hoja_('Opiniones'); carpeta_(); Logger.log('Hoja lista: ' + ss_().getUrl()); }
