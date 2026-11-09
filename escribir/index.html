@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;1,9..144,400&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="../config.js"></script>
+<script src="vendor/lamejs.js" defer></script>
 <style>
 :root{
   --velvet:#2b0a1a; --deep:#12030b; --champ:#f2d9a6; --blush:#f6b3c8; --paper:#f7eee2; --ink:#4a0f27; --rose-ink:#a63a5a;
@@ -196,7 +197,7 @@ main{max-width:1180px;margin:0 auto;padding:26px 24px 120px}
             <label class="btn small ghost">Subir canción<input type="file" accept="audio/*" id="fondoInput"></label>
             <button class="btn small ghost" type="button" id="fondoDel" hidden>Quitar</button>
           </div>
-          <span class="note">Suena de fondo en toda la animación. Si una carta trae su propia canción, la de fondo se apaga mientras suena.</span>
+          <span class="note">Suena de fondo en toda la animación. Se comprime sola a MP3 ligero antes de subirla para que cargue rápido. Si una carta trae su propia canción, la de fondo se apaga mientras suena.</span>
         </div>
       </div>
     </details>
@@ -367,8 +368,9 @@ $('#sTestBtn').addEventListener('click', async () => {
 });
 $('#fondoInput').addEventListener('change', async e => {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return;
-  const slot = $('#fondoSlot'); slot.classList.add('busy'); $('#fondoFile').textContent = 'Subiendo ' + f.name + '…';
-  try { const meta = await upload('fondo', 'musica', f); DATA.fondo = meta; toast('Música de fondo subida'); } catch (err) { toast(err.message); }
+  const slot = $('#fondoSlot'); slot.classList.add('busy'); $('#fondoFile').textContent = 'Preparando ' + f.name + '…';
+  const prog = (p, st) => { $('#fondoFile').textContent = st === 'subiendo' ? 'Subiendo…' : 'Comprimiendo ' + Math.round(p * 100) + ' %'; };
+  try { const meta = await upload('fondo', 'musica', f, prog); DATA.fondo = meta; toast('Música de fondo subida'); } catch (err) { toast(err.message); }
   slot.classList.remove('busy'); renderFondo();
 });
 $('#fondoDel').addEventListener('click', async () => {
@@ -385,9 +387,35 @@ async function compressImage(file) {
   c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
   return new Promise(res => c.toBlob(b => res(b), 'image/jpeg', .86));
 }
-async function upload(fecha, tipo, file) {
+/* Canciones: se convierten a MP3 ligero (mono, 32 kHz, 64 kbps) antes de subirlas. 3 min ≈ 1,4 MB. */
+async function compressAudio(file, onProgress) {
+  if (!window.lamejs) throw new Error('nolame');
+  const buf = await file.arrayBuffer();
+  const Ctx = window.AudioContext || window.webkitAudioContext; const ctx = new Ctx();
+  const decoded = await new Promise((res, rej) => ctx.decodeAudioData(buf.slice(0), res, rej)); ctx.close && ctx.close();
+  const RATE = 32000, len = Math.ceil(decoded.duration * RATE);
+  const off = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, len, RATE);
+  const src = off.createBufferSource(); src.buffer = decoded; src.connect(off.destination); src.start();
+  const mono = (await off.startRendering()).getChannelData(0);
+  const enc = new lamejs.Mp3Encoder(1, RATE, 64), BLOCK = 1152 * 20, parts = [];
+  const pcm = new Int16Array(BLOCK);
+  for (let i = 0; i < mono.length; i += BLOCK) {
+    const n = Math.min(BLOCK, mono.length - i);
+    for (let j = 0; j < n; j++) { const v = Math.max(-1, Math.min(1, mono[i + j])); pcm[j] = v < 0 ? v * 32768 : v * 32767; }
+    const out = enc.encodeBuffer(n === BLOCK ? pcm : pcm.subarray(0, n)); if (out.length) parts.push(new Uint8Array(out));
+    if ((i / BLOCK) % 25 === 0) { onProgress && onProgress(i / mono.length); await new Promise(r => setTimeout(r, 0)); }
+  }
+  const end = enc.flush(); if (end.length) parts.push(new Uint8Array(end));
+  return new Blob(parts, { type: 'audio/mpeg' });
+}
+async function upload(fecha, tipo, file, onProgress) {
   let blob = file, mime = file.type, nombre = file.name;
   if (tipo === 'foto') { blob = await compressImage(file); mime = 'image/jpeg'; nombre = nombre.replace(/\.\w+$/, '') + '.jpg'; }
+  if (tipo === 'musica' && file.size > 600 * 1024) {
+    try { const mp3 = await compressAudio(file, onProgress); if (mp3.size < file.size) { blob = mp3; mime = 'audio/mpeg'; nombre = nombre.replace(/\.\w+$/, '') + '.mp3'; } }
+    catch (e) { /* si el navegador no puede convertirla, se sube tal cual */ }
+  }
+  onProgress && onProgress(1, 'subiendo');
   if (blob.size > MAX) throw new Error('El archivo pesa más de 20 MB. Prueba con uno más corto o comprimido.');
   const r = await api(null, { accion: 'subir', fecha, tipo, nombre, mime, data: await readB64(blob) });
   if (!r.ok) throw new Error(r.error === 'grande' ? 'El archivo es demasiado grande.' : 'No se ha podido subir el archivo.');
@@ -457,8 +485,9 @@ function dayCard(k, c) {
     const t = slot.dataset.t, input = slot.querySelector('input[type=file]');
     input.addEventListener('change', async () => {
       const f = input.files[0]; input.value = ''; if (!f) return;
-      slot.classList.add('busy'); slot.querySelector('.file').textContent = 'Subiendo ' + f.name + '…';
-      try { c[t] = await upload(k, t, f); if (t !== 'musica') showLocal(f); toast('Archivo subido'); } catch (err) { toast(err.message); }
+      slot.classList.add('busy'); const fl = slot.querySelector('.file'); fl.textContent = 'Preparando ' + f.name + '…';
+      const prog = (p, st) => { fl.textContent = st === 'subiendo' ? 'Subiendo…' : 'Comprimiendo ' + Math.round(p * 100) + ' %'; };
+      try { c[t] = await upload(k, t, f, prog); if (t !== 'musica') showLocal(f); toast('Archivo subido'); } catch (err) { toast(err.message); }
       slot.classList.remove('busy'); paint();
     });
     slot.querySelector('.del').addEventListener('click', async () => {
