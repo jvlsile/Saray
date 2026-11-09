@@ -33,18 +33,25 @@ canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
 #ovTend{left:0;right:0;bottom:4.5vh;text-align:center;text-shadow:0 2px 20px #000;padding:0 20px}
 #tendCount{font-weight:600;font-size:clamp(22px,2.6vw,32px);color:var(--champ)}
 #ovTend p+p{font-style:italic;font-size:clamp(14px,1.5vw,18px);color:var(--blush);margin-top:4px}
-#polaroid{left:50%;top:6vh;width:min(36vw,42vh,300px);background:#fbf8f3;padding:12px 12px 46px;box-shadow:0 30px 70px rgba(0,0,0,.55);cursor:pointer;filter:none;
-  transform:translate(-50%,-75vh) rotate(-24deg);opacity:1;transition:transform 1.25s cubic-bezier(.2,1.25,.35,1),opacity .4s ease}
-#polaroid:not(.on){opacity:0;transform:translate(-50%,-75vh) rotate(-24deg);transition:transform .5s cubic-bezier(.5,0,.75,0),opacity .4s ease .1s}
-#polaroid.on{transform:translate(-50%,0) rotate(-4deg);pointer-events:auto}
-#polaroid.on.aside{transform:translate(calc(-50% + min(34vw,520px)),6vh) rotate(9deg) scale(.62)}
+/* la polaroid cae a un lado de la carta, sin tapar el texto */
+#polaroid{right:5vw;left:auto;bottom:15vh;top:auto;width:min(24vw,40vh,280px);background:#fbf8f3;padding:10px 10px 38px;box-shadow:0 24px 50px -10px rgba(0,0,0,.6);cursor:pointer;filter:none;
+  transform:translateY(-80vh) rotate(-24deg);opacity:1;transition:transform 1.25s cubic-bezier(.2,1.25,.35,1),opacity .4s ease}
+#polaroid:not(.on){opacity:0;transform:translateY(-80vh) rotate(-24deg);transition:transform .5s cubic-bezier(.5,0,.75,0),opacity .4s ease .1s}
+#polaroid.on{transform:rotate(5deg);pointer-events:auto}
+#polaroid.on.aside{transform:translate(8%,30%) rotate(10deg) scale(.6)}
 #polaroid .pic{aspect-ratio:1;background:#222;overflow:hidden}
 #polaroid img,#polaroid video{width:100%;height:100%;object-fit:cover;display:block}
-#polaroid .tape{position:absolute;left:50%;top:-14px;width:96px;height:30px;transform:translateX(-50%) rotate(3deg);background:rgba(246,179,200,.75);box-shadow:0 2px 6px rgba(0,0,0,.15)}
-#polaroid .cap{position:absolute;left:0;right:0;bottom:12px;text-align:center;font-style:italic;color:#4a0f27;font-size:clamp(15px,1.6vw,19px)}
-@media (max-aspect-ratio:1/1){#polaroid{width:min(64vw,38vh,300px);top:12vh}#polaroid.on.aside{transform:translate(-50%,46vh) rotate(6deg) scale(.5)}}
+#polaroid .tape{position:absolute;left:50%;top:-12px;width:42%;height:24px;transform:translateX(-50%) rotate(3deg);background:rgba(246,179,200,.75)}
+#polaroid .cap{position:absolute;left:0;right:0;bottom:9px;text-align:center;font-style:italic;color:#4a0f27;font-size:clamp(13px,1.4vw,18px)}
+@media (max-aspect-ratio:1/1){
+  #polaroid{left:4vw;right:auto;bottom:calc(14vh + 120px);width:min(42vw,26vh,220px);padding:7px 7px 28px}
+  #polaroid.on{transform:rotate(-6deg)}
+  #polaroid.on.aside{transform:translate(-30%,25%) rotate(-12deg) scale(.55)}
+}
 #musicChip{left:14px;bottom:14px;transform:translateY(10px);display:flex;align-items:center;gap:10px;background:rgba(18,3,11,.7);border:1px solid rgba(242,217,166,.3);
-  backdrop-filter:blur(8px);padding:8px 16px;border-radius:999px;font-size:14px;max-width:80vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  backdrop-filter:blur(8px);padding:8px 16px;border-radius:999px;font-size:14px;max-width:min(80vw,420px);white-space:nowrap}
+#musicChip .mtxt{min-width:0;overflow:hidden;text-overflow:ellipsis}
+#musicChip .bars{flex:none}
 #musicChip.on{transform:none}
 body.has-panel #musicChip{bottom:auto;top:58px}
 #musicChip b{font-weight:600;color:var(--champ)}
@@ -114,7 +121,7 @@ body.has-panel #musicChip{bottom:auto;top:58px}
 <div class="ov" id="polaroid" role="button" tabindex="0" aria-label="Foto de la carta: toca para apartarla">
   <span class="tape"></span><div class="pic"><img id="polImg" alt="" hidden><video id="polVideo" playsinline loop hidden></video></div><span class="cap">Para Saray</span>
 </div>
-<div class="ov" id="musicChip"><span class="bars"><i></i><i></i><i></i></span><span>Suena <b id="musicName"></b></span></div>
+<div class="ov" id="musicChip"><span class="bars"><i></i><i></i><i></i></span><span class="mtxt" id="musicLabel">Suena <b id="musicName"></b></span></div>
 <div class="ov" id="toast"></div>
 <button class="ov" id="soundGate">Toca para activar la música</button>
 <div id="ui"><button id="bPause">Pausar</button><button id="bSound">Silenciar</button><button id="bReplay">Repetir</button><button id="bCarta">Ver la carta</button><button id="bFull">Pantalla completa</button></div>
