@@ -233,9 +233,20 @@ function readApi(text) {
   const m = text.match(/#c=([\w\-=]+)/); if (m) { try { const u = unb64u(m[1]); if (okApi(u)) return u; } catch (e) {} }
   return '';
 }
+async function descifrar(code, c) {
+  const b = x => Uint8Array.from(atob(x), ch => ch.charCodeAt(0)), enc = new TextEncoder();
+  const base = await crypto.subtle.importKey('raw', enc.encode(code), 'PBKDF2', false, ['deriveKey']);
+  const key = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt: b(c.s), iterations: 150000, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+  return new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b(c.i) }, key, b(c.d)));
+}
+async function fromCode(text) {   // enlace corto (…/#código) o el código solo
+  const m = (text || '').trim().match(/(?:#|^)([a-z0-9]{6,10})$/); if (!m || !CFG.CIFRADO) return '';
+  try { const u = await descifrar(m[1], CFG.CIFRADO); if (okApi(u)) { store.set('code', m[1]); return u; } } catch (e) {}
+  return '';
+}
 { const fromHash = readApi(location.hash); if (fromHash) { store.set('api', fromHash); try { history.replaceState(null, '', location.pathname); } catch (e) {} } }
 CFG.API_URL = CFG.API_URL || store.get('api');
-const shareLink = () => new URL('.', location.href).href + '#c=' + b64u(CFG.API_URL);
+const shareLink = () => new URL('.', location.href).href + (store.get('code') ? '#' + store.get('code') : '#c=' + b64u(CFG.API_URL));
 const sarayLink = () => new URL('..', location.href).href + '#c=' + b64u(CFG.API_URL);
 const MAX = 20 * 1024 * 1024;
 let KEY = '', NAME = '', DATA = null;
@@ -255,10 +266,12 @@ async function api(params, body) {
 
 /* ---------- acceso ---------- */
 $('#gName').value = store.get('name'); $('#gKey').value = store.get('key'); $('#gApiRow').hidden = !!CFG.API_URL;
+const hashReady = (async () => { if (CFG.API_URL && !location.hash) return; const u = await fromCode(location.hash); if (u) { CFG.API_URL = u; store.set('api', u); $('#gApiRow').hidden = true; try { history.replaceState(null, '', location.pathname); } catch (e) {} } })();
 $('#gateForm').addEventListener('submit', async e => {
   e.preventDefault(); $('#gErr').textContent = ''; $('#gBtn').disabled = true; $('#gBtn').textContent = 'Comprobando…';
   KEY = $('#gKey').value.trim(); NAME = $('#gName').value.trim();
-  if (!CFG.API_URL) { const u = readApi($('#gApi').value); if (!u) { $('#gErr').textContent = 'El enlace de configuración no es válido. Pídeselo de nuevo a la organizadora.'; $('#gBtn').disabled = false; $('#gBtn').textContent = 'Entrar'; return; } CFG.API_URL = u; }
+  await hashReady;
+  if (!CFG.API_URL) { const u = readApi($('#gApi').value) || await fromCode($('#gApi').value); if (!u) { $('#gErr').textContent = 'El enlace de configuración no es válido. Pídeselo de nuevo a la organizadora.'; $('#gBtn').disabled = false; $('#gBtn').textContent = 'Entrar'; return; } CFG.API_URL = u; }
   try {
     const d = await api({ accion: 'todas' });
     if (!d.ok) throw new Error(d.error === 'clave' ? 'La clave no es correcta.' : 'No se ha podido entrar.');
@@ -405,7 +418,7 @@ function dayCard(k, c) {
 }
 
 /* entrada automática si ya hay clave guardada */
-if (store.get('key') && store.get('name') && CFG.API_URL) $('#gateForm').requestSubmit();
+hashReady.then(() => { if (store.get('key') && store.get('name') && CFG.API_URL) $('#gateForm').requestSubmit(); });
 void sarayLink;
 })();
 </script>
