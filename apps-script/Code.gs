@@ -187,8 +187,18 @@ function ponerConfig_(k, val) {
   if (!fila) { h.appendRow([k, '']); fila = h.getLastRow(); }
   h.getRange(fila, 2).setValue(val);
 }
+/* Funciona tanto si el script se creó desde la hoja (Extensiones → Apps Script)
+   como si se creó suelto en script.google.com: en ese caso crea la hoja él solo y la recuerda. */
+function ss_() {
+  const activa = SpreadsheetApp.getActiveSpreadsheet(); if (activa) return activa;
+  const props = PropertiesService.getScriptProperties(), id = props.getProperty('HOJA_ID');
+  if (id) { try { return SpreadsheetApp.openById(id); } catch (e) {} }
+  const nueva = SpreadsheetApp.create('Cartas para Saray');
+  props.setProperty('HOJA_ID', nueva.getId());
+  return nueva;
+}
 function hoja_(nombre) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = ss_();
   let h = ss.getSheetByName(nombre);
   if (!h) {
     h = ss.insertSheet(nombre);
@@ -209,4 +219,4 @@ function cut_(x, n) { return s_(x).slice(0, n); }
 function json_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
 
 /** Ejecuta esta función una vez para crear las pestañas, la carpeta y conceder permisos. */
-function preparar() { hoja_('Cartas'); hoja_('Config'); carpeta_(); }
+function preparar() { hoja_('Cartas'); hoja_('Config'); carpeta_(); Logger.log('Hoja lista: ' + ss_().getUrl()); }
