@@ -61,6 +61,15 @@ textarea{resize:vertical;min-height:140px;line-height:1.5}
 .note{font-size:13px;color:var(--muted);line-height:1.45}
 .err{color:#ffb4c4;font-size:14px;min-height:1.4em}
 .row{display:flex;gap:8px;align-items:stretch;min-width:0}
+.toggle{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;align-items:start;cursor:pointer;color:var(--text)}
+.toggle input{position:absolute;opacity:0;width:1px;height:1px}
+.toggle .track{width:48px;height:28px;border-radius:999px;background:rgba(255,255,255,.12);border:1px solid var(--line-strong);position:relative;transition:background-color .2s ease;margin-top:2px}
+.toggle .track::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:var(--text);transition:transform .25s var(--ease)}
+.toggle input:checked + .track{background:var(--champ);border-color:var(--champ)}
+.toggle input:checked + .track::after{transform:translateX(20px);background:var(--velvet)}
+.toggle input:focus-visible + .track{outline:2px solid var(--champ);outline-offset:2px}
+.toggle .tl{display:grid;gap:2px;font-size:15px}
+.toggle .tl b{font-weight:600}
 .row > input{flex:1 1 auto;min-width:0}
 .row > .btn{flex:none}
 
@@ -260,10 +269,15 @@ details.pv[open] > summary .when-closed{display:none}
           <input type="tel" id="sTel" placeholder="34 600 000 000" inputmode="tel" autocomplete="off">
           <span class="note">Con el prefijo del país, sin el +.</span>
         </label>
-        <label class="f"><span class="lbl">Tu correo para los avisos de WhatsApp<span class="sv" data-for="sOrga"></span></span>
+        <label class="f"><span class="lbl">Tu correo para los avisos<span class="sv" data-for="sOrga"></span></span>
           <input type="email" id="sOrga" placeholder="tu@correo" autocomplete="email">
-          <span class="note">A la hora de cada carta “por WhatsApp” te llega un correo con el botón para enviársela.</span>
+          <span class="note">Aquí te llegan el botón para enviar por WhatsApp las cartas que lo usen y, si lo activas, el aviso de lectura.</span>
         </label>
+        <div class="f">
+          <label class="toggle"><input type="checkbox" id="sLectura"><span class="track" aria-hidden="true"></span>
+            <span class="tl"><b>Avisarme cuando Saray abra una carta</b><span class="note">Te llega un correo la primera vez que abre cada carta. Bajo cada día verás cuándo la abrió.</span></span></label>
+          <span class="sv" data-for="sLectura"></span>
+        </div>
         <label class="f"><span class="lbl">Enlace de la web (va en el correo)<span class="sv" data-for="sWeb"></span></span>
           <input type="url" id="sWeb" autocomplete="off">
         </label>
@@ -466,6 +480,15 @@ function bindSettings() {
   autosave('sEmail', () => ({ email: $('#sEmail').value.trim() }), () => { DATA.email = $('#sEmail').value.trim(); renderAviso(); });
   autosave('sWeb', () => ({ web: $('#sWeb').value.trim() }));
   autosave('sTel', () => ({ tel: $('#sTel').value.trim() }), () => { DATA.tel = $('#sTel').value.replace(/[^\d]/g, ''); document.querySelectorAll('.day').forEach(d => d.dispatchEvent(new Event('repaint'))); });
+  const lec = $('#sLectura'), lsv = document.querySelector('.sv[data-for="sLectura"]');
+  lec.checked = DATA.avisoLectura !== false;
+  lec.addEventListener('change', async () => {
+    lsv.className = 'sv on'; lsv.textContent = 'Guardando…';
+    try { const r = await api(null, { accion: 'ajustes', avisoLectura: lec.checked }); if (!r.ok) throw 0;
+      DATA.avisoLectura = lec.checked; lsv.textContent = lec.checked ? '✓ Aviso activado' : '✓ Aviso desactivado'; setTimeout(() => lsv.classList.remove('on'), 2200);
+      if (lec.checked && !$('#sOrga').value.trim()) toast('Escribe tu correo en “Tu correo para los avisos” para recibirlo.');
+    } catch (e) { lec.checked = !lec.checked; lsv.className = 'sv on err'; lsv.textContent = 'No se ha guardado'; }
+  });
   autosave('sOrga', () => ({ emailOrga: $('#sOrga').value.trim() }), () => { DATA.emailOrga = $('#sOrga').value.trim(); });
 }
 $('#sShareBtn').addEventListener('click', async () => {

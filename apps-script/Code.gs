@@ -43,7 +43,7 @@ function doGet(e) {
     if (p.clave !== CLAVE) return json_({ ok: false, error: 'clave' });
     const cfg = leerConfig_();
     return json_({ ok: true, hoy, hora: cfg.hora || '', email: cfg.email_saray || '', web: cfg.web_url || '',
-      tel: cfg.tel_saray || '', emailOrga: cfg.email_orga || '', enlace: enlaceSaray_(cfg),
+      tel: cfg.tel_saray || '', emailOrga: cfg.email_orga || '', enlace: enlaceSaray_(cfg), avisoLectura: cfg.aviso_lectura !== 'no',
       avisoActivo: hayAviso_(), fondo: cfg.fondo ? JSON.parse(cfg.fondo) : null, cartas: leerCartas_(), opiniones: leerOpiniones_(), lecturas: leerLecturas_() });
   }
 
@@ -121,6 +121,7 @@ function doPost(e) {
         if ('tel' in d) ponerConfig_('tel_saray', String(d.tel || '').replace(/[^\d]/g, '').slice(0, 15));
         if ('emailOrga' in d) ponerConfig_('email_orga', cut_(d.emailOrga, 120));
         if ('enlace' in d) ponerConfig_('enlace_saray', cut_(d.enlace, 300));
+        if ('avisoLectura' in d) ponerConfig_('aviso_lectura', d.avisoLectura ? 'si' : 'no');
         return json_({ ok: true });
       }
       case 'probarAviso': {
@@ -222,7 +223,7 @@ function marcarLeida_(d) {
     const primera = !v.slice(1).some(r => fecha_(r[0]) === d.fecha);
     h.appendRow([d.fecha, ahora_(), cut_(d.disp, 40)]);
     const cfg = leerConfig_();
-    if (primera && cfg.email_orga) {
+    if (primera && cfg.email_orga && cfg.aviso_lectura !== 'no') {
       const f = new Date(d.fecha + 'T12:00:00'), dias = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
       const cuando = Utilities.formatDate(new Date(), TZ, 'HH:mm');
       const texto = `Saray ha abierto la carta del ${dias[f.getDay()]} ${f.getDate()} («${c.titulo || 'sin título'}») a las ${cuando}.`;
