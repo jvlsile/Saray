@@ -119,6 +119,8 @@ main{max-width:1180px;margin:0 auto;padding:6px var(--pad) 120px}
 .rail .num{font-family:Fraunces,serif;font-size:46px;line-height:.9;color:var(--champ);font-weight:600}
 .rail .wd{font-family:Fraunces,serif;font-style:italic;color:var(--blush);font-size:19px}
 .rail .meta{flex-basis:100%;font-size:13px;color:var(--muted)}
+.rail .read{flex-basis:100%;font-size:13px;color:var(--ok)}
+.rail .read::before{content:"✓ "}
 .body{display:grid;grid-template-columns:minmax(0,1fr);gap:22px}
 .form{display:grid;gap:16px;min-width:0}
 .form .two{display:grid;grid-template-columns:minmax(0,1fr) minmax(112px,40%);gap:12px}
@@ -198,6 +200,7 @@ details.pv[open] > summary .when-closed{display:none}
   .rail .num{font-size:64px}
   .rail .st{margin-top:12px}
   .rail .meta{margin-top:8px}
+  .rail .read{margin-top:6px}
   .body{grid-template-columns:minmax(0,1fr) minmax(0,360px);gap:28px;align-items:start}
   .media{grid-template-columns:repeat(3,minmax(0,1fr))}
   .media .slot{grid-template-columns:36px minmax(0,1fr)}
@@ -297,6 +300,7 @@ details.pv[open] > summary .when-closed{display:none}
       <div class="wd"></div>
       <div class="st"><span class="pill"></span></div>
       <div class="meta"></div>
+      <div class="read" hidden></div>
     </div>
     <div class="body">
       <div class="form">
@@ -556,6 +560,8 @@ function dayCard(k, c) {
     const [cls, txt] = status(k, cc); const pill = q('.pill'); pill.className = 'pill ' + cls; pill.textContent = txt;
     const dot = document.querySelector(`#daynav .chip[data-k="${k}"] i`); if (dot) dot.className = cls === 'ok' ? 'ok' : cls === 'warn' ? 'warn' : 'sched';
     q('.meta').textContent = c.actualizado ? `Última edición: ${c.por || 'alguien'}, ${new Date(c.actualizado).toLocaleString('es-ES', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}` : '';
+    const lec = DATA.lecturas && DATA.lecturas[k], rd = q('.read');
+    rd.hidden = !lec; if (lec) rd.textContent = `Saray la abrió: ${new Date(lec.primera).toLocaleString('es-ES', { weekday: 'long', hour: '2-digit', minute: '2-digit' })}` + (lec.veces > 1 ? ` (${lec.veces} veces)` : '');
     q('.d').textContent = date; q('.t').textContent = v.titulo || 'Título de la carta'; q('.t').classList.toggle('empty', !v.titulo);
     q('.x').textContent = v.texto || 'Aquí aparecerá la pista…'; q('.x').classList.toggle('empty', !v.texto);
     q('.s').textContent = v.firma || CFG.FIRMA;

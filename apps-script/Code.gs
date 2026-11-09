@@ -4,6 +4,7 @@
  * - La web pública solo recibe las cartas (y sus fotos, vídeos y canciones) de HOY y de días anteriores.
  * - La página oculta /escribir/ lee y guarda todas, con la clave.
  * - Cada carta tiene su hora de publicación: a esa hora se desbloquea y se avisa a Saray por correo.
+ * - Cuando Saray abre una carta en la web, queda anotado y la organizadora recibe un aviso.
  *
  * Instrucciones de instalación: README.md del repositorio.
  */
@@ -43,7 +44,7 @@ function doGet(e) {
     const cfg = leerConfig_();
     return json_({ ok: true, hoy, hora: cfg.hora || '', email: cfg.email_saray || '', web: cfg.web_url || '',
       tel: cfg.tel_saray || '', emailOrga: cfg.email_orga || '', enlace: enlaceSaray_(cfg),
-      avisoActivo: hayAviso_(), fondo: cfg.fondo ? JSON.parse(cfg.fondo) : null, cartas: leerCartas_(), opiniones: leerOpiniones_() });
+      avisoActivo: hayAviso_(), fondo: cfg.fondo ? JSON.parse(cfg.fondo) : null, cartas: leerCartas_(), opiniones: leerOpiniones_(), lecturas: leerLecturas_() });
   }
 
   if (accion === 'archivo') {
@@ -66,6 +67,7 @@ function doGet(e) {
 /* ============================ ESCRITURA ============================ */
 function doPost(e) {
   let d; try { d = JSON.parse(e.postData.contents); } catch (err) { return json_({ ok: false, error: 'formato' }); }
+  if (d.accion === 'leida') return marcarLeida_(d);          // la web de Saray avisa de que ha abierto una carta (sin clave)
   if (d.clave !== CLAVE) return json_({ ok: false, error: 'clave' });
   const lock = LockService.getScriptLock(); lock.waitLock(20000);
   try {
@@ -209,6 +211,35 @@ function leerCartas_() {
   }
   return out;
 }
+/* ============================ LECTURAS ============================ */
+function marcarLeida_(d) {
+  if (!esFecha_(d.fecha)) return json_({ ok: false, error: 'fecha' });
+  const c = leerCartas_()[d.fecha];
+  if (!c || !publicada_(d.fecha, c)) return json_({ ok: false, error: 'todavia-no' });
+  const lock = LockService.getScriptLock(); if (!lock.tryLock(8000)) return json_({ ok: false, error: 'ocupado' });
+  try {
+    const h = hoja_('Lecturas'), v = h.getDataRange().getValues();
+    const primera = !v.slice(1).some(r => fecha_(r[0]) === d.fecha);
+    h.appendRow([d.fecha, ahora_(), cut_(d.disp, 40)]);
+    const cfg = leerConfig_();
+    if (primera && cfg.email_orga) {
+      const f = new Date(d.fecha + 'T12:00:00'), dias = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+      const cuando = Utilities.formatDate(new Date(), TZ, 'HH:mm');
+      const texto = `Saray ha abierto la carta del ${dias[f.getDay()]} ${f.getDate()} («${c.titulo || 'sin título'}») a las ${cuando}.`;
+      MailApp.sendEmail({ to: cfg.email_orga, subject: 'Saray ha abierto su carta', name: 'Cartas para Saray', body: texto,
+        htmlBody: `<div style="background:#2b0a1a;padding:28px 16px;font-family:Georgia,serif"><div style="max-width:440px;margin:0 auto;background:#f7eee2;border-radius:6px;padding:28px;text-align:center;border:1px solid #d9b98a"><div style="color:#a63a5a;font-style:italic">Carta leída</div><div style="color:#4a0f27;font-size:20px;font-weight:bold;margin-top:8px">${texto}</div></div></div>` });
+    }
+    return json_({ ok: true });
+  } finally { lock.releaseLock(); }
+}
+function leerLecturas_() {
+  const v = hoja_('Lecturas').getDataRange().getValues(), out = {};
+  for (let i = 1; i < v.length; i++) {
+    const f = fecha_(v[i][0]); if (!f) continue;
+    const o = out[f] = out[f] || { primera: s_(v[i][1]), veces: 0 }; o.veces++;
+  }
+  return out;
+}
 function leerOpiniones_() {
   const v = hoja_('Opiniones').getDataRange().getValues(), out = {};
   for (let i = 1; i < v.length; i++) {
@@ -251,6 +282,7 @@ function hoja_(nombre) {
   if (!h) {
     h = ss.insertSheet(nombre);
     if (nombre === 'Cartas') { h.getRange('A:L').setNumberFormat('@'); h.appendRow(COLS); }
+    if (nombre === 'Lecturas') { h.getRange('A:C').setNumberFormat('@'); h.appendRow(['fecha', 'cuando', 'dispositivo']); }
     if (nombre === 'Opiniones') { h.getRange('A:E').setNumberFormat('@'); h.appendRow(['fecha', 'por', 'voto', 'comentario', 'cuando']); }
     if (nombre === 'Config') { h.getRange('A:B').setNumberFormat('@'); h.appendRow(['clave', 'valor']); }
   }
@@ -268,4 +300,4 @@ function cut_(x, n) { return s_(x).slice(0, n); }
 function json_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
 
 /** Ejecuta esta función una vez para crear las pestañas, la carpeta y conceder permisos. */
-function preparar() { hoja_('Cartas'); hoja_('Config'); hoja_('Opiniones'); carpeta_(); Logger.log('Hoja lista: ' + ss_().getUrl()); }
+function preparar() { hoja_('Cartas'); hoja_('Config'); hoja_('Opiniones'); hoja_('Lecturas'); carpeta_(); Logger.log('Hoja lista: ' + ss_().getUrl()); }
