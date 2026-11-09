@@ -434,7 +434,7 @@ function start() {
   $('#sHora').value = DATA.hora || ''; $('#sEmail').value = DATA.email || ''; $('#sWeb').value = DATA.web || new URL('..', location.href).href;
   $('#sShare').value = shareLink();
   $('#sTel').value = DATA.tel || ''; $('#sOrga').value = DATA.emailOrga || '';
-  if (!DATA.enlace && store.get('code')) { DATA.enlace = sarayLink(); api(null, { accion: 'ajustes', enlace: DATA.enlace }).catch(() => {}); }
+  if (store.get('code') && (!DATA.enlace || DATA.enlace.includes('#c='))) { DATA.enlace = sarayLink(); api(null, { accion: 'ajustes', enlace: DATA.enlace }).catch(() => {}); }
   renderAviso(); renderFondo(); bindSettings();
   const box = $('#days'), nav = $('#daynav'); box.innerHTML = ''; nav.innerHTML = '';
   days.forEach(k => {
